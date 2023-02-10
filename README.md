@@ -45,6 +45,66 @@ Concrete syntax:
              plus-exp (arg1 arg2)
 ```
 
+`lit-exp` will be a list composed of the symbol `lit-exp` followed by the number, like:
+```
+'(lit-exp 34)
+'(lit-exp -1)
+'(lit-exp 12133456)
+```
 
+A `plus-exp` will be a list composed of the symbol `'plus-exp` followed by two Calc expressions, like:
+```
+'(plus-exp (lit-exp 1) (lit-exp 2))
+'(plus-exp (lit-exp 1) 
+           (plus-exp (lit-exp 2) (lit-exp 3)))
+```
+
+`lit-exp` will be a list composed of the symbol `lit-exp` followed by the number, like:
+```
+'(lit-exp 34)
+'(lit-exp -1)
+'(lit-exp 12133456)
+```
+
+A `plus-exp` will be a list composed of the symbol ``plus-exp` followed by two Calc expressions, like:
+```
+'(plus-exp (lit-exp 1) (lit-exp 2))
+'(plus-exp (lit-exp 1) 
+           (plus-exp (lit-exp 2) (lit-exp 3)))
+```
+
+Our first goal is to write a parser that takes s-expression Calc representations and turn them into AST's:
+```
+> (parser '(1 + 2))
+(plus-exp (lit-exp 1) (lit-exp 2))
+```
+
+The parser could look as follows:
+```scheme
+#lang scheme
+
+(define (parser exp)
+  (cond
+    ((number? exp) (list 'lit-exp exp))
+    ((equal? (cadr exp) '+)
+     (list 'plus-exp
+           (parser (car exp))
+           (parser (caddr exp))))
+    (else (error "Invalid concrete syntax: " exp))))
+```
+
+```
+> (parser 42)
+(lit-exp 42)
+> (parser '(1 + 2))
+(plus-exp (lit-exp 1) (lit-exp 2))
+> (parser '(1 + ((2 + 3) + 4)))
+(plus-exp (lit-exp 1) (plus-exp (plus-exp (lit-exp 2) (lit-exp 3)) (lit-exp 4)))
+> (parser '(100 ^ 2))
+Invalid concrete syntax:  (100 ^ 2)
+```
+
+### Exercise
+Extend the parser to include the ability to parse minus, multiply, and divide concrete syntax. Extensively test it to make sure that it works for all valid input, and fails on non-valid input.
 
 
