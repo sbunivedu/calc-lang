@@ -52,10 +52,10 @@ Concrete syntax:
 '(lit-exp 12133456)
 ```
 
-A `plus-exp` will be a list composed of the symbol `'plus-exp` followed by two Calc expressions, like:
+A `plus-exp` will be a list composed of the symbol `plus-exp` followed by two Calc expressions, like:
 ```
 '(plus-exp (lit-exp 1) (lit-exp 2))
-'(plus-exp (lit-exp 1) 
+'(plus-exp (lit-exp 1)
            (plus-exp (lit-exp 2) (lit-exp 3)))
 ```
 
@@ -66,10 +66,10 @@ A `plus-exp` will be a list composed of the symbol `'plus-exp` followed by two C
 '(lit-exp 12133456)
 ```
 
-A `plus-exp` will be a list composed of the symbol ``plus-exp` followed by two Calc expressions, like:
+A `plus-exp` will be a list composed of the symbol `plus-exp` followed by two Calc expressions, like:
 ```
 '(plus-exp (lit-exp 1) (lit-exp 2))
-'(plus-exp (lit-exp 1) 
+'(plus-exp (lit-exp 1)
            (plus-exp (lit-exp 2) (lit-exp 3)))
 ```
 
