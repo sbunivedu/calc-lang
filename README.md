@@ -139,7 +139,7 @@ Extend this evaluator to evaluate multiple, divide, and minus. Extensively test 
 
 ## Define-datatype
 
-Things get a bit messy with the cars and cdrs in the above evaluator. We introduce [define-datatype](http://docs.racket-lang.org/eopl/index.html?q=define-datatype#%28form._%28%28lib._eopl%2Feopl..rkt%29._define-datatype%29%29z) to make these datatypes easier to deal with by giving them named-parts.
+Things get a bit messy with the `cars` and `cdrs` in the above evaluator. We introduce [define-datatype](https://docs.racket-lang.org/eopl/index.html?q=define-datatype#%28form._%28%28lib._eopl%2Feopl..rkt%29._define-datatype%29%29) to make these datatypes easier to deal with by giving them named-parts.
 
 `define-datatype` is a special form used to create recursive data structures. It takes the form:
 ```
@@ -161,7 +161,7 @@ For example, we can define `calc-exp` as being composed of `lit-exp` and `plus-e
 
 The above code automatically defines the following:
 | name | meaning |
-| ---- | ------- |
+| :--- | :------ |
 | calc-exp | a named type |
 | calc-exp? | a predicate that determines if a value belongs to the named type |
 | lit-exp | a variant type name and a constructor/procedure for creating values belonging to the variant |
@@ -217,9 +217,9 @@ Note that `cases` branches on the datatype instance produced by `ast`, which mus
 Rewrite the parser and evaluator to use `define-datatype`. Test them both thoroughly to make sure that all correct versions work, and that incorrect forms fail.
 
 ### Excercise 4
-Refine your grammar so that all infix operators are treated as one expression type, rather than 4 different ones. For example, instead of having `plus-exp` and `minus-exp`, you will now have something like `app-exp` ("application expression"). You'll need to add another field to your new expression to store the operation symbol (e.g., `+` or `-`). Add other mathematical operators to make your Calculator Language more useful.
+Refine your grammar so that all infix operators are treated as one expression type, rather than 4 different ones. For example, instead of having `plus-exp`, `minus-exp`, and etc., you will now have something like `app-exp` ("application expression"). You'll need to add another field to your new expression to store the operation symbol (e.g., `+`, `-`, `*`, or `/`). Add other mathematical operators to make your Calculator Language more useful.
 
-You can test whether an expression represents an infix binary operation as follows: `if (= 3 (length '(1 + (2 * 3))))` return true, `'(1 + (2 * 3))` must represent a binary operation with an operator and two operands. We know if the length of the list is not 3 it has to be a syntax error. We can let input such as `'(1 2 3)` pass because it will eventually cause a runtime error.
+You can test whether an expression represents an infix binary operation as follows: if `(= 3 (length '(1 + (2 * 3))))` return true, `'(1 + (2 * 3))` must represent a binary operation with an operator and two operands. We know if the length of the list is not 3 it has to be a syntax error. We can let input such as `'(1 2 3)` pass because it will eventually cause a runtime error.
 
 You can turn a symbol into a procedure as follows:
 ```
