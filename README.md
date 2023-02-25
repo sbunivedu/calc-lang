@@ -228,3 +228,241 @@ You can turn a symbol into a procedure as follows:
 > ((eval '*) 3 4)
 12
 ```
+
+## N-nary operators
+
+We will add the following functions to our language by adding them to the grammar. `min`, `max` should each take two arguments and return the `min` and `max` (respectively) of the two numbers. The concrete syntax of min and max should be:
+```
+(min 1 2)
+(max 3 7)
+```
+And they should parse to AST that looks like:
+```
+(func-call-exp min calc-exp calc-exp)
+(func-call-exp max calc-exp calc-exp)
+```
+When evaluated, they will give the `min` or the `max` of the two arguments.
+
+### Exercise 5
+Add the functions avg and sum which can take any number of expressions, and compute the average.
+```
+(sum 1 2 3 6) => 12
+(avg 1 2 3 6) => 3
+```
+
+Here is one way of defining `func-call-var-exp`, a datatype with variable args:
+```
+(define-datatype calc-exp2 calc-exp2?
+  (func-call-var-exp
+   (func symbol?)
+   (args (list-of number?))))
+
+> (func-call-var-exp 'sum '(1 2 3))
+#(struct:func-call-var-exp sum (1 2 3))
+> (evaluator (parser '(max 10 2)))
+10
+> (evaluator (parser '(min 10 2)))
+2
+> (evaluator (parser '(avg 10 2 4 5 6)))
+525
+```
+
+The `list-of` function takes a function `f` and returns a function, which takes a list of items and applies `f` to each. If `(f item)` is true for all items, then the function returns `#t`, otherwise `#f`. The `eopl` language implements this `list-of` function, which can be written as follows:
+```
+(define (list-of pred)
+  (lambda (lst)
+    (or (null? lst)
+        (and (pair? lst)
+             (pred (car lst))
+             ((list-of pred) (cdr lst))))))
+
+> ((list-of number?) '(1 2 3))
+#t
+> ((list-of number?) '(1 2 a))
+#f
+> ((list-of symbol?) '(1 2 a))
+#f
+> ((list-of symbol?) '(a b c))
+#t
+```
+
+We can define some helper functions that we will need in the evaluator: `avg` and `sum`:
+
+```
+(define avg
+  (lambda (x)
+    (/ (sum x)
+       (length x))))
+
+(define sum
+  (lambda (x)
+    (apply + x)))
+
+> (sum '(1 2 3 4))
+10
+> (avg '(1 2 3))
+2
+> (avg (list 1 2 3 4))
+2 1/2
+> (apply + '(1 2 3))
+6
+> (apply = '(1 1))
+#t
+> (apply (lambda (x y) (+ x y)) '(1 2))
+3
+```
+### Predefined variables
+We will pre-define `pi` as 3.141592653589793, and `e` as 2.718281828459045.
+
+In order to use variables, you will need to pass in the environment to the evaluate function (and everywhere you call evaluate). We will use an association list as the environment. So, an environment will be defined and used like so:
+
+```
+(define env '((pi 3.141592653589793)
+              (e  2.718281828459045)))
+
+> (assq 'pi env)
+(pi 3.141592653589793)
+Note: "assq" returns the first element in "env" whose car is "pi".
+
+> (assq 'c env)
+#f
+```
+
+Change the evaluate function to take an additional argument, the environment. You will need to add `var-exp` to the `define-datatype`, and be able to parse and evaluate the variables. It should then work as follows:
+```
+> (evaluate (parser 'pi) env)
+3.141592653589793
+```
+
+Finally, use your new language to compute something useful. For example, what is the area of a circle of radius 2 feet?
+```
+> (evaluate (parser '(pi * (2 * 2))) env)
+12.5663706143592
+```
+
+Now, we define an environment and a utility function to make testing easy:
+```
+(define (lookup name env)
+  (let ((binding (assq name env)))
+    (if binding
+        (cadr binding)
+        (eopl:error 'lookup "No such variable: ~a" name))))
+
+(define env '((pi 3.141592653589793) (e 2.718281828459045)))
+> (lookup 'pi env)
+3.141592653589793
+> (lookup 'c env)
+lookup: No such variable: c
+```
+
+Note that `assq` is used to search for a name in a list of `(name value)` pairs.
+
+Finally, in the evaluator, we evaluate the AST:
+```
+(define evaluator
+  (lambda (ast env)
+...
+
+(define env (list (list 'pi 3.141592653589793)
+                  (list 'e  2.718281828459045)))
+
+(define (calc exp)
+  (evaluator (parser exp) env))
+
+(define (test exp)
+  (printf "~a -> ~a~%" exp (calc exp env)))
+```
+
+Now update your evaluator to use predefined variables in the environment. Your language needs to support the following operations: `+`, `*`, `min`, `max`, `avg`, and `sum` and evaluate them using the current environment.
+
+The beginning of our calculator language looks very good! It can do at least as much as a good calculator, maybe more: it has infix operators, some specific functions, and variables. But the implementation of the different functions and operators was pretty messy. The way that we had to write the parser was a bit limiting. For example, we might have some ambiguity in the future:
+```
+In  [A]: (new-function + 34)
+In  [B]: (min + 23)
+In  [C]: (34 f 56)
+```
+In A, our parser may find that to be addition, when we really meant it to be an application of the new-function.
+
+In B, we can't have a variable named `min` or it would throw off our parser.
+
+In C, we can't have a variable `f` bound to `+`, because our parser wouldn't know that that is a `plus-exp`.
+
+Perhaps we should consider a concrete syntax like Scheme's. Then all of the functions would appear in the initial position. Let's leave that for the moment. In fact, let's remove all of the applications of functions, and think about what it would take for the user to be able to write their own functions.
+
+As a warm up, let's add `if-exp` to a stripped-down parser/evaluator.
+
+## If expression
+We know that an `if-exp` in Scheme is a "special form"... it short-circuits evaluation of the elements, not evaluating the branch that it doesn't need to. Let's define what the parser and evaluator should give us:
+
+```
+> (parser '(if 1 2 3))
+(if-exp (lit-exp 1) (lit-exp 2) (lit-exp 3))
+> (calc '(if 1 2 3))
+2
+> (calc '(if 0 2 3))
+3
+```
+
+Let us pare-down the datatype to the bare minimum to focus on new forms:
+```
+(define-datatype calc-exp calc-exp?
+  (lit-exp
+   (value number?))
+  (var-exp
+   (name symbol?))
+  (if-exp
+   (test-exp calc-exp?)
+   (then-exp calc-exp?)
+   (else-exp calc-exp?)))
+```
+
+The parser is simply:
+```
+(define (parser exp)
+  (cond
+    ((symbol? exp) (var-exp exp))
+    ((number? exp) (lit-exp exp))
+    ((eq? (car exp) 'if) (if-exp (parser (cadr exp))
+                                 (parser (caddr exp))
+                                 (parser (cadddr exp))))))
+
+> (parser '(if 1 2 3))
+#(struct:if-exp #(struct:lit-exp 1) #(struct:lit-exp 2) #(struct:lit-exp 3))
+```
+
+Test out the parser to make sure it is recursively well-defined.
+
+To use our new `if-exp`, we need to have the ability to test whether an expression is true. We could introduce a boolean type. However, for the moment let's just use numbers to represent booleans. We define false to be 0; anything else will be true:
+```
+(define (true? v)
+  (not (= v 0)))
+
+> (true? 1)
+#t
+> (true? 0)
+#f
+> (true? 42)
+#t
+```
+
+Our evaluator handling if-exp:
+```
+(define (evaluator ast env)
+  (cases calc-exp ast
+    (lit-exp (value) value)
+    (var-exp (name) (lookup name env))
+    (if-exp (test-exp then-exp else-exp)
+            (if (true? (evaluator test-exp env))
+                (evaluator then-exp env)
+                (evaluator else-exp env)))))
+
+
+> (calc '(if 1 2 3))
+2
+> (calc '(if 0 2 3))
+3
+> (test '(if 0 2 3))
+(if 0 2 3) -> 3
+```
+
+Extensively test `if-exp` with recursive expressions.
