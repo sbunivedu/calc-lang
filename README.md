@@ -466,3 +466,237 @@ Our evaluator handling if-exp:
 ```
 
 Extensively test `if-exp` with recursive expressions.
+
+## Procedures and Closures
+Now, let's think about procedures. Let's examine Scheme's procedures, and how they handle variables that are defined and undefined. We can define procedures without worrying if everything is defined:
+```
+> (lambda () x)
+#<procedure>
+```
+
+Oh, but we can't use that unless we have a way of later calling it. Note that in Scheme, you can define a function in one place (in one "environment") but use it in another.
+```
+> (define f (lambda () x))
+> (f)
+x: undefined;
+cannot reference an identifier before its definition
+```
+
+But, we can later put an `x` in the "global environment" and it will work:
+```
+> (define x 3)
+> (f)
+3
+> (define x 5)
+> (f)
+5
+```
+
+Let's see what happens if we evaluate `f` with a "local" variable `x`:
+```
+> (let ((x 7))
+ 	 (f))
+5
+```
+
+Interesting! `x` was still found in the global environment... it didn't even look in the local variables, but went straight to the globals.
+
+Now let's try the opposite: what happens if we define a local variable, then return a function that references a variable from that local environment:
+```scheme
+(define f (let ((x 42))
+            (lambda () x)))
+```
+
+What happens if we call it:
+```
+> (f)
+42
+Interesting! Scheme remembered that x was 42. Let's see if we can change the value of x:
+> (define x 7)
+> (f)
+42
+```
+
+Very interesting! When a lambda expression is evaluated, it "captures" the bindings of all of the defined variables. For those that aren't defined, those variables are unbound (aka "free"), and Scheme will look for their values in the "toplevel" environment dynamically at runtime. So, a free variable:
+```
+(define f (lambda () q))
+```
+is not bound to anything:
+```
+> (f)
+q: undefined;
+cannot reference an identifier before its definition
+```
+
+And can't be found in a local environment:
+```
+> (let ((q 4)) (f))
+q: undefined;
+cannot reference an identifier before its definition
+```
+But can, in the top level environment:
+> (define q 5)
+> (f)
+5
+
+Concrete syntax:
+```
+<expression>	::= (func ({<identifier>}*) <expression>)
+			procedure-exp (ids body)
+```
+
+Let's now see if we can add such behavior to our Calc language. We start by defining our concrete syntax, and the AST that it will parse into:
+```
+(parser '(func (n) n))
+```
+should produce
+```
+(procedure-exp (n) (var-exp n))
+```
+
+So, `func` is lambda.
+```
+(parser '((func (n) n) 42))
+```
+should produce
+```
+(app-exp (procedure-exp (n) (var-exp n)))
+```
+
+Great! But when we evaluate a procedure-exp, we need somehow to be able to "capture" all of those defined variables. We can do that by simply sticking the environment as it exists at that time into a new form called a "closure". A closure is nothing more than a procedure-exp with the current environment stuck in there as well:
+(parser '(func (n) n))
+(closure-exp env (n) (var-exp n))
+
+Finally, we want to evaluate a function: we call it, and pass in arguments to be bound to variables:
+(calc '((func (n) n) 42))
+42
+
+We define these new special forms with a few helper functions:
+(define-datatype calc-exp calc-exp?
+  (lit-exp
+   (value number?))
+  (var-exp
+   (name symbol?))
+  (if-exp
+   (test-exp calc-exp?)
+   (then-exp calc-exp?)
+   (else-exp calc-exp?))
+  (procedure-exp
+   (parameters (list-of symbol?))
+   (body calc-exp?))
+  (closure-exp
+   (env list?)
+   (parameters (list-of symbol?))
+   (body calc-exp?))
+  (app-exp
+   (procedure procedure-or-var?)
+   (args (list-of calc-exp?))))
+
+(define (list-of pred)
+  (lambda (lst)
+    (or (null? lst)
+        (and (pair? lst)
+             (pred (car lst))
+             ((list-of pred) (cdr lst))))))
+
+(define (procedure-or-var? exp)
+  (cond
+    ((not (calc-exp? exp)) #f)
+    (else (cases calc-exp exp
+            (procedure-exp (arg1 arg2) #t)
+            (var-exp (n) #t)
+            (else #f)))))
+
+(define (closure-exp? exp)
+  (cond
+    ((not (calc-exp? exp)) #f)
+    (else (cases calc-exp exp
+            (closure-exp (arg1 arg2 arg3) #t)
+            (else #f)))))
+
+The parser is pretty straightforward:
+(define (parser exp)
+  (cond
+    ((symbol? exp) (var-exp exp))
+    ((number? exp) (lit-exp exp))
+    ((eq? (car exp) 'func) (procedure-exp
+                            (cadr exp)
+                            (parser (caddr exp))))
+    ((eq? (car exp) 'if) (if-exp (parser (cadr exp))
+                                 (parser (caddr exp))
+                                 (parser (cadddr exp))))
+    (else (app-exp (parser (car exp))
+                   (map parser (cdr exp))))))
+
+> (parser '((func (n) 1) 4))
+#(struct:app-exp
+  #(struct:procedure-exp (n) #(struct:lit-exp 1))
+  (#(struct:lit-exp 4)))
+> (parser '((func (n) (func (n) 2)) 4))
+#(struct:app-exp
+  #(struct:procedure-exp
+    (n)
+    #(struct:procedure-exp (n) #(struct:lit-exp 2)))
+  (#(struct:lit-exp 4)))
+
+The evaluator is also fairly easy, although we introduce a new function applier that will apply whatever function we give it to a list of evaluated args.
+
+(define (evaluator ast env)
+  (cases calc-exp ast
+    (lit-exp (value) value)
+    (var-exp (name) (lookup name env))
+    (procedure-exp (parameters body)
+                   (closure-exp env parameters body))
+    (if-exp (test-exp then-exp else-exp)
+            (if (true? (evaluator test-exp env))
+                (evaluator then-exp env)
+                (evaluator else-exp env)))
+    (app-exp (procedure args)
+             (applier (evaluator procedure env) (map (lambda (e) (evaluator e env)) args) env))
+    (else #f)))
+Notice that a procedure-exp evaluates to a closure-exp, which is just a procedure-exp with the current environment injected into it:
+
+When we evaluate an expression like ((func (n) n) 5) we need to be able to extend the environment with n bound to 5. To do that, all we need to do is cons (n 5) onto the environment, and use the extended environment:
+(define (extend-env vars vals env)
+  (cond
+    ((null? vars) env)
+    (else (extend-env (cdr vars) (cdr vals)
+                      (cons (list (car vars) (car vals)) env)))))
+
+> (extend-env '(a) '(1) env)
+((a 1) (pi 3.141592653589793) (e 2.718281828459045))
+> (extend-env '(a b c) '(1 2 3) env)
+((c 3)
+ (b 2)
+ (a 1)
+ (pi 3.141592653589793)
+ (e 2.718281828459045))
+
+Notice that the environment doesn't change forever... it is still the same:
+> env
+((pi 3.141592653589793) (e 2.718281828459045))
+
+Finally, we are ready to apply our functions. We need a couple of helper functions to extract the parts of the closure datatype. (These should be defined when we execute define-datatype.)
+(define (closure-exp->body closure)
+  (cases calc-exp closure
+    (closure-exp (env parameters body) body)
+    (else #f)))
+
+(define (closure-exp->parameters closure)
+  (cases calc-exp closure
+    (closure-exp (env parameters body) parameters)
+    (else #f)))
+
+Applier will then take a closure, extend the environment with the parameters bound to the arguments, and then evaluate the body of the closure:
+(define (applier f values env)
+  (cond
+    ((closure-exp? f)
+     (evaluator (closure-exp->body f)
+                (extend-env (closure-exp->parameters f) values env)))
+    (else (apply f values))))
+
+solution
+
+> (calc '((func (n) n) 4))
+4
+
