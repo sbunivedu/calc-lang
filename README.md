@@ -535,9 +535,11 @@ q: undefined;
 cannot reference an identifier before its definition
 ```
 But can, in the top level environment:
+```
 > (define q 5)
 > (f)
 5
+```
 
 Concrete syntax:
 ```
@@ -563,15 +565,21 @@ should produce
 (app-exp (procedure-exp (n) (var-exp n)))
 ```
 
-Great! But when we evaluate a procedure-exp, we need somehow to be able to "capture" all of those defined variables. We can do that by simply sticking the environment as it exists at that time into a new form called a "closure". A closure is nothing more than a procedure-exp with the current environment stuck in there as well:
+Great! But when we evaluate a `procedure-exp`, we need somehow to be able to "capture" all of those defined variables. We can do that by simply sticking the environment as it exists at that time into a new form called a "closure". A closure is nothing more than a `procedure-exp` with the current environment stuck in there as well:
+
+```
 (parser '(func (n) n))
 (closure-exp env (n) (var-exp n))
+```
 
 Finally, we want to evaluate a function: we call it, and pass in arguments to be bound to variables:
+```
 (calc '((func (n) n) 42))
 42
+```
 
 We define these new special forms with a few helper functions:
+```scheme
 (define-datatype calc-exp calc-exp?
   (lit-exp
    (value number?))
@@ -627,7 +635,9 @@ The parser is pretty straightforward:
                                  (parser (cadddr exp))))
     (else (app-exp (parser (car exp))
                    (map parser (cdr exp))))))
-
+```
+Test it out:
+```
 > (parser '((func (n) 1) 4))
 #(struct:app-exp
   #(struct:procedure-exp (n) #(struct:lit-exp 1))
@@ -638,9 +648,10 @@ The parser is pretty straightforward:
     (n)
     #(struct:procedure-exp (n) #(struct:lit-exp 2)))
   (#(struct:lit-exp 4)))
+```
 
-The evaluator is also fairly easy, although we introduce a new function applier that will apply whatever function we give it to a list of evaluated args.
-
+The evaluator is also fairly easy, although we introduce a new function `applier` that will apply whatever function we give it to a list of evaluated args.
+```
 (define (evaluator ast env)
   (cases calc-exp ast
     (lit-exp (value) value)
@@ -654,15 +665,20 @@ The evaluator is also fairly easy, although we introduce a new function applier 
     (app-exp (procedure args)
              (applier (evaluator procedure env) (map (lambda (e) (evaluator e env)) args) env))
     (else #f)))
-Notice that a procedure-exp evaluates to a closure-exp, which is just a procedure-exp with the current environment injected into it:
+```
 
-When we evaluate an expression like ((func (n) n) 5) we need to be able to extend the environment with n bound to 5. To do that, all we need to do is cons (n 5) onto the environment, and use the extended environment:
+Notice that a `procedure-exp` evaluates to a `closure-exp`, which is just a `procedure-exp` with the current environment injected into it:
+
+When we evaluate an expression like `((func (n) n) 5)` we need to be able to extend the environment with n bound to 5. To do that, all we need to do is `cons` `(n 5)` onto the environment, and use the extended environment:
+```
 (define (extend-env vars vals env)
   (cond
     ((null? vars) env)
     (else (extend-env (cdr vars) (cdr vals)
                       (cons (list (car vars) (car vals)) env)))))
-
+```
+Test it out:
+```
 > (extend-env '(a) '(1) env)
 ((a 1) (pi 3.141592653589793) (e 2.718281828459045))
 > (extend-env '(a b c) '(1 2 3) env)
@@ -671,12 +687,16 @@ When we evaluate an expression like ((func (n) n) 5) we need to be able to exten
  (a 1)
  (pi 3.141592653589793)
  (e 2.718281828459045))
+```
 
 Notice that the environment doesn't change forever... it is still the same:
+```
 > env
 ((pi 3.141592653589793) (e 2.718281828459045))
+```
 
 Finally, we are ready to apply our functions. We need a couple of helper functions to extract the parts of the closure datatype. (These should be defined when we execute define-datatype.)
+```
 (define (closure-exp->body closure)
   (cases calc-exp closure
     (closure-exp (env parameters body) body)
@@ -686,6 +706,7 @@ Finally, we are ready to apply our functions. We need a couple of helper functio
   (cases calc-exp closure
     (closure-exp (env parameters body) parameters)
     (else #f)))
+```
 
 Applier will then take a closure, extend the environment with the parameters bound to the arguments, and then evaluate the body of the closure:
 (define (applier f values env)
@@ -694,9 +715,12 @@ Applier will then take a closure, extend the environment with the parameters bou
      (evaluator (closure-exp->body f)
                 (extend-env (closure-exp->parameters f) values env)))
     (else (apply f values))))
+```
 
-solution
+###Exercise 6
+Finish implementing the interpreter to handle procedures.
 
+Test it out:
 > (calc '((func (n) n) 4))
 4
 
