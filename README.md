@@ -709,6 +709,7 @@ Finally, we are ready to apply our functions. We need a couple of helper functio
 ```
 
 Applier will then take a closure, extend the environment with the parameters bound to the arguments, and then evaluate the body of the closure:
+```
 (define (applier f values env)
   (cond
     ((closure-exp? f)
@@ -721,6 +722,8 @@ Applier will then take a closure, extend the environment with the parameters bou
 Finish implementing the interpreter to handle procedures.
 
 Test it out:
+```
 > (calc '((func (n) n) 4))
 4
+```
 
