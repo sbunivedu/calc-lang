@@ -718,7 +718,7 @@ Applier will then take a closure, extend the environment with the parameters bou
     (else (apply f values))))
 ```
 
-###Exercise 6
+### Exercise 6
 Finish implementing the interpreter to handle procedures.
 
 Test it out:
