@@ -727,3 +727,117 @@ Test it out:
 4
 ```
 
+Yes, it works! Applier had actually two cases: one the closure that we have just defined, and the "else". We allow Calc functions to also be Scheme functions. Cheat! Well, yes. But that means that we can put Scheme functions in the environment, and they will work in our language:
+```scheme
+; First, we define those things that can't be defined in terms of others:
+(define env (list (list 'pi 3.141592653589793)
+                  (list 'e  2.718281828459045)
+                  (list '+ +)
+                  (list '- -)
+                  (list '* *)
+                  (list 'list list)
+                  (list '= (lambda (a b) (if (= a b) 1 0)))
+                  (list '< (lambda (a b) (if (< a b) 1 0)))
+                  (list '> (lambda (a b) (if (> a b) 1 0)))))
+
+; Next, we extend-env with those things that can use the previous things:
+
+(set! env
+      (extend-env
+       '(min max)
+       (list
+        (evaluator (parser '(func (a b) (if (< a b) a b))) env)
+        (evaluator (parser '(func (a b) (if (> a b) a b))) env)
+        )
+       env))
+```
+Test it out:
+```
+> env
+((max
+  #(struct:closure-exp
+    ((pi 3.141592653589793)
+     (e 2.718281828459045)
+     (+ #<procedure:+>)
+     (- #<procedure:->)
+     (* #<procedure:*>)
+     (list #<procedure:list>)
+     (= #<procedure:...xamples/func.rkt:110:27>)
+     (< #<procedure:...xamples/func.rkt:111:27>)
+     (> #<procedure:...xamples/func.rkt:112:27>))
+    (a b)
+    #(struct:if-exp
+      #(struct:app-exp
+        #(struct:var-exp >)
+        (#(struct:var-exp a) #(struct:var-exp b)))
+      #(struct:var-exp a)
+      #(struct:var-exp b))))
+ (min
+  #(struct:closure-exp
+    ((pi 3.141592653589793)
+     (e 2.718281828459045)
+     (+ #<procedure:+>)
+     (- #<procedure:->)
+     (* #<procedure:*>)
+     (list #<procedure:list>)
+     (= #<procedure:...xamples/func.rkt:110:27>)
+     (< #<procedure:...xamples/func.rkt:111:27>)
+     (> #<procedure:...xamples/func.rkt:112:27>))
+    (a b)
+    #(struct:if-exp
+      #(struct:app-exp
+        #(struct:var-exp <)
+        (#(struct:var-exp a) #(struct:var-exp b)))
+      #(struct:var-exp a)
+      #(struct:var-exp b))))
+ (pi 3.141592653589793)
+ (e 2.718281828459045)
+ (+ #<procedure:+>)
+ (- #<procedure:->)
+ (* #<procedure:*>)
+ (list #<procedure:list>)
+ (= #<procedure:...xamples/func.rkt:110:27>)
+ (< #<procedure:...xamples/func.rkt:111:27>)
+ (> #<procedure:...xamples/func.rkt:112:27>))
+```
+
+Test it out:
+```
+> (calc '(if 1 2 3))
+2
+> (calc '(if 0 2 3))
+3
+> (calc '(if 1 (if 1 4 5) 3))
+4
+> (calc '((func (n) n) 42))
+42
+> (calc '((func (a b) (list a b)) 1 2))
+(1 2)
+> (calc '((func (n) (max 5 (max 6 (if n 100 4)))) 0))
+6
+> (calc '((func (n) (max 5 (max 6 (if n 100 4)))) 1))
+100
+> (calc '((func (n m) (if (< n m) n m)) 6 5))
+5
+> (calc '(avg 1 2 3 4))
+2
+> (calc '((func (n factorial) (if (= n 1) 1 (* n (factorial (- n 1) factorial))))
+          5
+          (func (n factorial) (if (= n 1) 1 (* n (factorial (- n 1) factorial))))))
+120
+```
+## Local variables
+We can add local variables to Calc, using syntax similar to `(let ((x 1)) x)`. That is: `(let ((var value)...) body)`. It will use `extend-env`, and be somewhat similar to `applier`.
+
+### Exercise 7
+Add local variables to Calc and test your solution.
+
+```
+> (calc '(let ((a 1) (b 2) (c 3)) (sum a b c)))
+6
+> (calc '(let ((add1 (func (a b) (+ a b)))) (add1 1 2)))
+3
+> (calc '(let ((f (func (y z) (+ y (- z 5)))))
+          (f 2 28)))
+25
+```
