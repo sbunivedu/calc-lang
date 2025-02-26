@@ -59,20 +59,6 @@ A `plus-exp` will be a list composed of the symbol `plus-exp` followed by two Ca
            (plus-exp (lit-exp 2) (lit-exp 3)))
 ```
 
-`lit-exp` will be a list composed of the symbol `lit-exp` followed by the number, like:
-```
-'(lit-exp 34)
-'(lit-exp -1)
-'(lit-exp 12133456)
-```
-
-A `plus-exp` will be a list composed of the symbol `plus-exp` followed by two Calc expressions, like:
-```
-'(plus-exp (lit-exp 1) (lit-exp 2))
-'(plus-exp (lit-exp 1)
-           (plus-exp (lit-exp 2) (lit-exp 3)))
-```
-
 Our first goal is to write a parser that takes s-expression Calc representations and turn them into AST's:
 ```
 > (parser '(1 + 2))
@@ -327,16 +313,16 @@ Note: "assq" returns the first element in "env" whose car is "pi".
 > (assq 'c env)
 #f
 ```
-
-Change the evaluate function to take an additional argument, the environment. You will need to add `var-exp` to the `define-datatype`, and be able to parse and evaluate the variables. It should then work as follows:
+var-exp
+Change the evaluator function to take an additional argument, the environment. You will need to add `` to the `define-datatype`, and be able to parse and evaluate the variables. It should then work as follows:
 ```
-> (evaluate (parser 'pi) env)
+> (evaluator (parser 'pi) env)
 3.141592653589793
 ```
 
 Finally, use your new language to compute something useful. For example, what is the area of a circle of radius 2 feet?
 ```
-> (evaluate (parser '(pi * (2 * 2))) env)
+> (evaluator (parser '(pi * (2 * 2))) env)
 12.5663706143592
 ```
 
