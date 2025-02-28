@@ -75,6 +75,13 @@
   (lambda (x)
     (apply + x)))
 
+(define (lookup s env)
+  (cond ((null? env) #f)
+        ((equal? s (caar env)) (cadar env))
+        (else (lookup s (cdr env)))))
+
+(define env '((pi 3.141592653589793)(e  2.718281828459045)))
+
 ;(require racket/trace)
 ;(trace parser)
 

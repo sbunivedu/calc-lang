@@ -2,7 +2,7 @@
 
 (provide parser evaluator env)
 
-; simple interpreter that supports n-ary functions
+; simple interpreter that supports variable expressions
 
 (define-datatype calc-exp calc-exp?
   (lit-exp (value number?))
@@ -36,6 +36,7 @@
           ((equal? (car exp) 'sum)
            (func-call-var-exp 'sum
                               (map parser (cdr exp))))
+          ((symbol? exp) (var-exp exp))
           ((= (length exp) 3)
            (app-exp (cadr exp) (parser (car exp)) (parser (caddr exp))))
           (else (eopl:error 'parser "Invalid concrete syntax: ~s" exp)))))
@@ -47,26 +48,22 @@
       (var-exp (name) (lookup name env))
       (app-exp (operator arg1 arg2)
                (cond
-                 ((equal? operator '+)  (+ (evaluator arg1)
-                                           (evaluator arg2)))
-                 ((equal? operator '- ) (- (evaluator arg1)
-                                           (evaluator arg2)))
-                 ((equal? operator '* ) (* (evaluator arg1)
-                                           (evaluator arg2)))
-                 ((equal? operator '/ ) (/ (evaluator arg1)
-                                           (evaluator arg2)))))
+                 ((equal? operator '+)  (+ (evaluator arg1 env)
+                                           (evaluator arg2 env)))
+                 ((equal? operator '* ) (* (evaluator arg1 env)
+                                           (evaluator arg2 env)))))
       (func-call-exp (func arg1 arg2)
                      (cond
                        ((equal? func 'min)
-                        (min (evaluator arg1) (evaluator arg2)))
+                        (min (evaluator arg1 env) (evaluator arg2 env)))
                        ((equal? func 'max)
-                        (max (evaluator arg1) (evaluator arg2)))))
+                        (max (evaluator arg1 env) (evaluator arg2 env)))))
       (func-call-var-exp (func args)
                          (cond
                            ((equal? func 'avg)
-                            (avg (map evaluator args)))
+                            (avg (map (lambda (x) (evaluator x env)) args)))
                            ((equal? func 'sum)
-                            (sum (map evaluator args))))))))
+                            (sum (map (lambda (x) (evaluator x env)) args))))))))
 
 
 (define avg
@@ -78,11 +75,18 @@
   (lambda (x)
     (apply + x)))
 
-(define (lookup name env)
+#|(define (lookup name env)
   (let ((binding (assq name env)))
     (if binding
         (cadr binding)
         (eopl:error 'lookup "No such variable: ~a" name))))
+|#
+
+; an alternative implementation
+(define (lookup s env)
+  (cond ((null? env) #f)
+        ((equal? s (caar env)) (cadar env))
+        (else (lookup s (cdr env)))))
 
 (define env '((pi 3.141592653589793) (e 2.718281828459045)))
 
